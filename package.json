@@ -1,0 +1,79 @@
+{
+  "scripts": {
+    "build": "rimraf built && tsc",
+    "watch": "tsc --watch",
+    "lint": "tslint -p ./tsconfig.json",
+    "test": "jest",
+    "prettier": "prettier --config ./.prettierrc --write \"{src,test,bin,lib,config}/**/*.{ts,json,css,html,md}\""
+  },
+  "devDependencies": {
+    "@now/node": "^0.12.6",
+    "@types/jest": "^24.0.17",
+    "husky": "^3.0.3",
+    "jest": "^24.9.0",
+    "lint-staged": "^9.2.1",
+    "prettier": "1.18.2",
+    "rimraf": "^3.0.0",
+    "ts-jest": "^24.0.2",
+    "tslint": "^5.18.0",
+    "tslint-config-prettier": "^1.18.0",
+    "typescript": "^3.5.3"
+  },
+  "dependencies": {
+    "faunadb": "^2.7.0"
+  },
+  "engines": {
+    "node": ">=10"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "jest": {
+    "roots": [
+      "<rootDir>/api/"
+    ],
+    "moduleFileExtensions": [
+      "ts",
+      "js",
+      "json"
+    ],
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
+    "globals": {
+      "ts-jest": {
+        "tsConfig": "tsconfig.json"
+      }
+    },
+    "testMatch": [
+      "**/__tests__/**/*.ts"
+    ]
+  },
+  "lint-staged": {
+    "*.ts": [
+      "prettier --write",
+      "tslint --fix",
+      "git add"
+    ],
+    "*.{json,md,html,css}": [
+      "prettier --write",
+      "git add"
+    ]
+  },
+  "name": "jwt-example",
+  "description": "A example of user creation, login and jwt usage for protected routes.",
+  "version": "1.0.0",
+  "main": "index.js",
+  "keywords": [
+    "jwt",
+    "authentication",
+    "authorization",
+    "zeit",
+    "serverless",
+    "lambda"
+  ],
+  "author": "Mudit Ameta <zeusdeux@gmail.com>",
+  "license": "MIT"
+}

@@ -1,0 +1,41 @@
+{
+  "name": "jwt-example",
+  "scope": "zdx",
+  "alias": ["jwt-example.zdx.cat"],
+  "public": false,
+  "version": 2,
+  "builds": [{ "src": "api/*.ts", "use": "@now/node" }],
+  "routes": [
+    {
+      "src": "/register",
+      "method": ["POST"],
+      "dest": "api/register.ts"
+    },
+    {
+      "src": "/login",
+      "method": ["POST"],
+      "dest": "api/login.ts"
+    },
+    {
+      "src": "/logout",
+      "method": ["POST"],
+      "dest": "api/logout.ts"
+    },
+    {
+      "src": "/protected",
+      "method": ["GET"],
+      "dest": "api/protected.ts"
+    },
+    {
+      "src": "/*",
+      "status": 404
+    }
+  ],
+  "env": {
+    "JWT_EXAMPLE_DB_KEY": "@faundb-prod-jwt-example-db-key",
+    "JWT_EXAMPLE_DB_USER_CLASS_NAME": "Users",
+    "JWT_EXAMPLE_DB_TOKEN_BLACKLIST_CLASS_NAME": "JWTBlacklist",
+    "JWT_EXAMPLE_DB_USER_BY_EMAIL_INDEX_NAME": "user-by-email",
+    "JWT_EXAMPLE_DB_JWT_BY_TOKEN_FROM_BLACKLIST_INDEX_NAME": "jwt-by-token-from-blacklist"
+  }
+}
