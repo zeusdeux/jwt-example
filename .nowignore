@@ -1,9 +1,0 @@
-!api
-!errors
-!models
-!now.json
-!package*
-!tsconfig.json
-!tslint.json
-!utils
-!typings
