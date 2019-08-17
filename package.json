@@ -8,6 +8,7 @@
   },
   "devDependencies": {
     "@now/node": "^0.12.6",
+    "@types/bcryptjs": "^2.4.2",
     "@types/hapi__joi": "^15.0.3",
     "@types/jest": "^24.0.17",
     "@types/uuid": "^3.4.5",
@@ -23,11 +24,12 @@
   },
   "dependencies": {
     "@hapi/joi": "^15.1.1",
+    "bcryptjs": "^2.4.3",
     "faunadb": "^2.7.0",
     "uuid": "^3.3.2"
   },
   "engines": {
-    "node": ">=10"
+    "node": "10.x"
   },
   "husky": {
     "hooks": {
