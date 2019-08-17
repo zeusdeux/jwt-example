@@ -43,30 +43,35 @@ function getDBClient(): Client {
 }
 
 async function hashPassword(password: ExtractType<User, 'password'>): Promise<string> {
-  const salt = await bcrypt.genSalt(20)
+  const salt = await bcrypt.genSalt(12)
 
   return bcrypt.hash(password, salt)
 }
 
+// TODO: Figure out how to communicate error types so that we can set
+// the correct HTTP response codes
+// think objects tagged with enums as types more than custom errors
+// for e.g., on NotFound error return an object of type ErrorObject
+// that has a type field which is set to an enum that describes the
+// type of error
 export async function create({
   email,
   password,
   firstName,
   lastName
 }: Omit<User, '_id'>): Promise<Either<Error, User>> {
-  return match(await getUserIdByEmail(email), {
+  return match(await getUserByEmail(email), {
     left: async error => Left<Error, User>(error),
     right: async existingUser => {
       if (existingUser) {
-        return Right<Error, User>(existingUser)
+        return Left<Error, User>(new Error('User already exists'))
       }
 
       try {
-        const hashedPassword = await hashPassword(password)
         const user: User = {
           _id: uuidV4(),
           email,
-          password: hashedPassword,
+          password,
           firstName,
           lastName
         }
@@ -77,10 +82,11 @@ export async function create({
           return Left<Error, User>(userValidationResult.error)
         }
 
+        const hashedPassword = await hashPassword(password)
         const db = getDBClient()
         const { data: createdUser } = (await db.query(
           q.Create(q.Collection(process.env.JWT_EXAMPLE_DB_USER_CLASS_NAME!), {
-            data: user
+            data: { ...user, password: hashedPassword }
           })
         )) as FaunaDBQueryResponse<User>
         return Right<Error, User>(createdUser)
@@ -91,7 +97,7 @@ export async function create({
   })
 }
 
-async function getUserIdByEmail(
+async function getUserByEmail(
   email: ExtractType<User, 'email'>
 ): Promise<Either<Error, User | null>> {
   try {
