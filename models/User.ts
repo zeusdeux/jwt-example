@@ -42,6 +42,7 @@ function getDBClient(): Client {
   return dbClient
 }
 
+// TODO: Switch to argon2 once https://github.com/zeit/node-file-trace/pull/53 is merged
 async function hashPassword(password: ExtractType<User, 'password'>): Promise<string> {
   const salt = await bcrypt.genSalt(12)
 
