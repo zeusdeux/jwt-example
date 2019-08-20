@@ -1,19 +1,24 @@
 import { NowRequest, NowResponse } from '@now/node'
 import { STATUS_CODES } from 'http'
 import { v4 as uuidV4 } from 'uuid'
+import { prettyPrintError } from '../errors/CustomError'
 import { create as createUser, User } from '../models/User'
 import { match } from '../utils/match'
 
-export default async function(req: NowRequest, res: NowResponse) {
+export default async function(req: NowRequest, res: NowResponse): Promise<void> {
   const { email, password, firstName, lastName }: Omit<User, '_id'> = req.body
   const requestId = uuidV4()
 
-  console.log(`Request with id ${requestId} received to create user with email ->`, email) // tslint:disable-line:no-console
+  console.log('Begin requestId ->', requestId) // tslint:disable-line:no-console
 
   match(await createUser({ email, password, firstName, lastName }), {
     left: error => {
-      console.log('Error occurred ->', error) // tslint:disable-line:no-console
-      res.status(500).json({ message: error.message, requestId })
+      const statusCode = error.statusCode || 500
+
+      console.log('Error occurred ->', prettyPrintError(error)) // tslint:disable-line:no-console
+      res
+        .status(statusCode)
+        .json({ statusCode, message: error.message, details: error.details, requestId })
     },
     right: user => {
       const status = 201
@@ -33,7 +38,9 @@ export default async function(req: NowRequest, res: NowResponse) {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(stringifiedResponse)
       })
-      return res.end(stringifiedResponse)
+      res.end(stringifiedResponse)
     }
   })
+
+  console.log('End requestId ->', requestId) // tslint:disable-line:no-console
 }
