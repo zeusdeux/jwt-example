@@ -1,10 +1,12 @@
 import * as Joi from '@hapi/joi'
 import * as bcrypt from 'bcryptjs'
-import { Client, errors as FaunaDBErrors, query as q } from 'faunadb'
+import { errors as FaunaDBErrors, query as q } from 'faunadb'
 import { v4 as uuidV4 } from 'uuid'
+import { CustomError, ErrorType } from '../errors/CustomError'
 import { Either, Left, Right } from '../utils/Either'
 import { match } from '../utils/match'
 import { ExtractType } from '../utils/types'
+import { getDBClient } from './db'
 
 interface FaunaDBQueryResponse<T> {
   ref: {
@@ -36,12 +38,6 @@ const UserSchema = Joi.object().keys({
   lastName: Joi.string().required()
 })
 
-let dbClient: Client
-function getDBClient(): Client {
-  dbClient = dbClient || new Client({ secret: process.env.JWT_EXAMPLE_DB_KEY! })
-  return dbClient
-}
-
 // TODO: Switch to argon2 once https://github.com/zeit/node-file-trace/pull/53 is merged
 async function hashPassword(password: ExtractType<User, 'password'>): Promise<string> {
   const salt = await bcrypt.genSalt(12)
@@ -60,12 +56,12 @@ export async function create({
   password,
   firstName,
   lastName
-}: Omit<User, '_id'>): Promise<Either<Error, User>> {
+}: Omit<User, '_id'>): Promise<Either<CustomError, User>> {
   return match(await getUserByEmail(email), {
-    left: async error => Left<Error, User>(error),
+    left: async error => Left<CustomError, User>(error),
     right: async existingUser => {
       if (existingUser) {
-        return Left<Error, User>(new Error('User already exists'))
+        return Left<CustomError, User>(new CustomError(ErrorType.UserAlreadyExists))
       }
 
       try {
@@ -80,19 +76,25 @@ export async function create({
         const userValidationResult = Joi.validate(user, UserSchema, { abortEarly: false })
 
         if (userValidationResult.error) {
-          return Left<Error, User>(userValidationResult.error)
+          return Left<CustomError, User>(
+            new CustomError(
+              ErrorType.ValidationError,
+              userValidationResult.error,
+              userValidationResult.error.details.map(deet => deet.message)
+            )
+          )
         }
 
-        const hashedPassword = await hashPassword(password)
+        const hashedPassword = await hashPassword(userValidationResult.value.password)
         const db = getDBClient()
         const { data: createdUser } = (await db.query(
           q.Create(q.Collection(process.env.JWT_EXAMPLE_DB_USER_CLASS_NAME!), {
-            data: { ...user, password: hashedPassword }
+            data: { ...userValidationResult.value, password: hashedPassword }
           })
         )) as FaunaDBQueryResponse<User>
-        return Right<Error, User>(createdUser)
+        return Right<CustomError, User>(createdUser)
       } catch (err) {
-        return Left<Error, User>(err)
+        return Left<CustomError, User>(new CustomError(ErrorType.InternalServerError, err))
       }
     }
   })
@@ -100,21 +102,21 @@ export async function create({
 
 async function getUserByEmail(
   email: ExtractType<User, 'email'>
-): Promise<Either<Error, User | null>> {
+): Promise<Either<CustomError, User | null>> {
   try {
     const db = getDBClient()
     const { data: user } = (await db.query(
       q.Get(q.Match(q.Index(process.env.JWT_EXAMPLE_DB_USER_BY_EMAIL_INDEX_NAME!), email))
     )) as FaunaDBQueryResponse<User>
 
-    console.log(`User with email ${email} found with id ->`, user._id) // tslint:disable-line:no-console
+    console.log(`User found with id ->`, user._id) // tslint:disable-line:no-console
     return Right(user)
   } catch (err) {
     // no user with email found
     if (err instanceof FaunaDBErrors.NotFound) {
-      console.log(`User with email ${email} not found.`) // tslint:disable-line:no-console
+      console.log(`User not found.`) // tslint:disable-line:no-console
       return Right(null)
     }
-    return Left(err)
+    return Left(new CustomError(ErrorType.InternalServerError, err))
   }
 }
