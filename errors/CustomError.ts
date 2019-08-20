@@ -40,8 +40,8 @@ export class CustomError extends Error {
   public readonly statusCode: number
   constructor(
     readonly errorType: ErrorType,
-    readonly cause?: Error | CustomError,
-    readonly details?: string | Array<string | object> | object
+    readonly details?: string | Array<string | object> | object,
+    readonly cause?: Error | CustomError
   ) {
     super(ErrorMetadataRecord[errorType].message)
     this.statusCode = ErrorMetadataRecord[errorType].statusCode

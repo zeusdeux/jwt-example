@@ -71,8 +71,8 @@ export async function login({
     return Left(
       new CustomError(
         ErrorType.ValidationError,
-        argsValidationError,
-        argsValidationError.details.map(deet => deet.message)
+        argsValidationError.details.map(deet => deet.message),
+        argsValidationError
       )
     )
   }
@@ -87,7 +87,9 @@ export async function login({
 
           return passwordVerified
             ? Right<CustomError, User>(user)
-            : Left<CustomError, User>(new CustomError(ErrorType.Unauthorized))
+            : Left<CustomError, User>(
+                new CustomError(ErrorType.Unauthorized, 'Incorrect credentials')
+              )
         }
       })
   })
@@ -120,8 +122,8 @@ export async function create({
               return Left<CustomError, User>(
                 new CustomError(
                   ErrorType.ValidationError,
-                  userValidationResult.error,
-                  userValidationResult.error.details.map(deet => deet.message)
+                  userValidationResult.error.details.map(deet => deet.message),
+                  userValidationResult.error
                 )
               )
             }
@@ -136,7 +138,9 @@ export async function create({
 
             return Right<CustomError, User>(createdUser)
           } catch (err) {
-            return Left<CustomError, User>(new CustomError(ErrorType.InternalServerError, err))
+            return Left<CustomError, User>(
+              new CustomError(ErrorType.InternalServerError, err.message, err)
+            )
           }
         }
       })
