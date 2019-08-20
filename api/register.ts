@@ -30,7 +30,7 @@ export default async function(req: NowRequest, res: NowResponse): Promise<void> 
         requestId
       }
 
-      console.log('User created ->', response) // tslint:disable-line:no-console
+      console.log('User created', process.env.NODE_ENV !== 'production' ? response : '.') // tslint:disable-line:no-console
 
       const stringifiedResponse = JSON.stringify(response) + '\n'
 
