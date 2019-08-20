@@ -1,13 +1,15 @@
 export const enum ErrorType {
   UserAlreadyExists = 'UserAlreadyExists',
   InternalServerError = 'InternalServerError',
-  ValidationError = 'ValidationError'
+  ValidationError = 'ValidationError',
+  Unauthorized = 'Unauthorized'
 }
 
 const enum HttpStatusCode {
   BAD_REQUEST = 400,
   INTERNAL_SERVER_ERROR = 500,
-  UNPROCESSABLE_ENTITY = 422
+  UNPROCESSABLE_ENTITY = 422,
+  UNAUTHORIZED = 401
 }
 
 interface ErrorMetadata {
@@ -27,6 +29,10 @@ const ErrorMetadataRecord: Record<ErrorType, ErrorMetadata> = {
   [ErrorType.ValidationError]: {
     message: 'Payload failed validation',
     statusCode: HttpStatusCode.UNPROCESSABLE_ENTITY
+  },
+  [ErrorType.Unauthorized]: {
+    message: 'Unauthorized access',
+    statusCode: HttpStatusCode.UNAUTHORIZED
   }
 } as const
 

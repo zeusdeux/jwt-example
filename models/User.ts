@@ -5,6 +5,7 @@ import { v4 as uuidV4 } from 'uuid'
 import { CustomError, ErrorType } from '../errors/CustomError'
 import { Either, Left, Right } from '../utils/Either'
 import { match } from '../utils/match'
+import { Just, Maybe, Nothing } from '../utils/Maybe'
 import { ExtractType } from '../utils/types'
 import { getDBClient } from './db'
 
@@ -45,12 +46,53 @@ async function hashPassword(password: ExtractType<User, 'password'>): Promise<st
   return bcrypt.hash(password, salt)
 }
 
-// TODO: Figure out how to communicate error types so that we can set
-// the correct HTTP response codes
-// think objects tagged with enums as types more than custom errors
-// for e.g., on NotFound error return an object of type ErrorObject
-// that has a type field which is set to an enum that describes the
-// type of error
+async function verifyPassword(
+  password: ExtractType<User, 'password'>,
+  hashedPassword: string
+): Promise<boolean> {
+  return bcrypt.compare(password, hashedPassword)
+}
+
+export async function login({
+  email,
+  password
+}: Pick<User, 'email' | 'password'>): Promise<Either<CustomError, User>> {
+  const EmailAndPasswordDerivedSchema = Joi.object().keys({
+    email: Joi.reach(UserSchema, ['email']),
+    password: Joi.reach(UserSchema, ['password'])
+  })
+  const { error: argsValidationError } = Joi.validate(
+    { email, password },
+    EmailAndPasswordDerivedSchema,
+    { abortEarly: false }
+  )
+
+  if (argsValidationError) {
+    return Left(
+      new CustomError(
+        ErrorType.ValidationError,
+        argsValidationError,
+        argsValidationError.details.map(deet => deet.message)
+      )
+    )
+  }
+
+  return match(await getUserByEmail(email), {
+    left: async error => Left<CustomError, User>(error),
+    right: async maybeUser =>
+      match(maybeUser, {
+        nothing: () => Left<CustomError, User>(new CustomError(ErrorType.Unauthorized)),
+        just: async user => {
+          const passwordVerified = await verifyPassword(password, user.password)
+
+          return passwordVerified
+            ? Right<CustomError, User>(user)
+            : Left<CustomError, User>(new CustomError(ErrorType.Unauthorized))
+        }
+      })
+  })
+}
+
 export async function create({
   email,
   password,
@@ -59,50 +101,51 @@ export async function create({
 }: Omit<User, '_id'>): Promise<Either<CustomError, User>> {
   return match(await getUserByEmail(email), {
     left: async error => Left<CustomError, User>(error),
-    right: async existingUser => {
-      if (existingUser) {
-        return Left<CustomError, User>(new CustomError(ErrorType.UserAlreadyExists))
-      }
+    right: async maybeUser =>
+      match(maybeUser, {
+        just: _ => Left<CustomError, User>(new CustomError(ErrorType.UserAlreadyExists)),
+        nothing: async () => {
+          try {
+            const user: User = {
+              _id: uuidV4(),
+              email,
+              password,
+              firstName,
+              lastName
+            }
 
-      try {
-        const user: User = {
-          _id: uuidV4(),
-          email,
-          password,
-          firstName,
-          lastName
+            const userValidationResult = Joi.validate(user, UserSchema, { abortEarly: false })
+
+            if (userValidationResult.error) {
+              return Left<CustomError, User>(
+                new CustomError(
+                  ErrorType.ValidationError,
+                  userValidationResult.error,
+                  userValidationResult.error.details.map(deet => deet.message)
+                )
+              )
+            }
+
+            const hashedPassword = await hashPassword(userValidationResult.value.password)
+            const db = getDBClient()
+            const { data: createdUser } = (await db.query(
+              q.Create(q.Collection(process.env.JWT_EXAMPLE_DB_USER_CLASS_NAME!), {
+                data: { ...userValidationResult.value, password: hashedPassword }
+              })
+            )) as FaunaDBQueryResponse<User>
+
+            return Right<CustomError, User>(createdUser)
+          } catch (err) {
+            return Left<CustomError, User>(new CustomError(ErrorType.InternalServerError, err))
+          }
         }
-
-        const userValidationResult = Joi.validate(user, UserSchema, { abortEarly: false })
-
-        if (userValidationResult.error) {
-          return Left<CustomError, User>(
-            new CustomError(
-              ErrorType.ValidationError,
-              userValidationResult.error,
-              userValidationResult.error.details.map(deet => deet.message)
-            )
-          )
-        }
-
-        const hashedPassword = await hashPassword(userValidationResult.value.password)
-        const db = getDBClient()
-        const { data: createdUser } = (await db.query(
-          q.Create(q.Collection(process.env.JWT_EXAMPLE_DB_USER_CLASS_NAME!), {
-            data: { ...userValidationResult.value, password: hashedPassword }
-          })
-        )) as FaunaDBQueryResponse<User>
-        return Right<CustomError, User>(createdUser)
-      } catch (err) {
-        return Left<CustomError, User>(new CustomError(ErrorType.InternalServerError, err))
-      }
-    }
+      })
   })
 }
 
 async function getUserByEmail(
   email: ExtractType<User, 'email'>
-): Promise<Either<CustomError, User | null>> {
+): Promise<Either<CustomError, Maybe<User>>> {
   try {
     const db = getDBClient()
     const { data: user } = (await db.query(
@@ -110,12 +153,12 @@ async function getUserByEmail(
     )) as FaunaDBQueryResponse<User>
 
     console.log(`User found with id ->`, user._id) // tslint:disable-line:no-console
-    return Right(user)
+    return Right(Just(user))
   } catch (err) {
     // no user with email found
     if (err instanceof FaunaDBErrors.NotFound) {
       console.log(`User not found.`) // tslint:disable-line:no-console
-      return Right(null)
+      return Right(Nothing())
     }
     return Left(new CustomError(ErrorType.InternalServerError, err))
   }
