@@ -33,6 +33,8 @@
   ],
   "env": {
     "JWT_EXAMPLE_DB_KEY": "@faundb-prod-jwt-example-db-key",
+    "JWT_SIGNING_RS256_PRIVATE_KEY": "@jwt-signing-rs256-private-key",
+    "JWT_SIGNING_RS256_PUBLIC_KEY": "@jwt-signing-rs256-public-key",
     "JWT_EXAMPLE_DB_USER_CLASS_NAME": "Users",
     "JWT_EXAMPLE_DB_TOKEN_BLACKLIST_CLASS_NAME": "JWTBlacklist",
     "JWT_EXAMPLE_DB_USER_BY_EMAIL_INDEX_NAME": "user-by-email",
