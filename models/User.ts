@@ -15,6 +15,11 @@ export interface User {
   password: string
   firstName: string
   lastName: string
+  createdAt: string
+  updatedAt: string
+  deletedAt?: string
+  lastLoggedInAt?: string
+  lastLoggedOutAt?: string
 }
 
 const UserSchema = Joi.object().keys({
@@ -28,7 +33,22 @@ const UserSchema = Joi.object().keys({
     .min(8)
     .required(),
   firstName: Joi.string().required(),
-  lastName: Joi.string().required()
+  lastName: Joi.string().required(),
+  createdAt: Joi.date()
+    .iso()
+    .required(),
+  updatedAt: Joi.date()
+    .iso()
+    .required(),
+  deleteAt: Joi.date()
+    .iso()
+    .optional(),
+  lastLoggedInAt: Joi.date()
+    .iso()
+    .optional(),
+  lastLoggedOutAt: Joi.date()
+    .iso()
+    .optional()
 })
 
 // TODO: Switch to argon2 once https://github.com/zeit/node-file-trace/pull/53 is merged
@@ -69,23 +89,34 @@ export async function login({
     )
   }
 
-  return match(await getUserByEmail(email), {
+  return match(await getUserAndRefByEmail(email), {
     left: async error => Left<CustomError, User>(error),
-    right: async maybeUser =>
-      match(maybeUser, {
+    right: async maybeUserAndRef =>
+      match(maybeUserAndRef, {
         nothing: () => Left<CustomError, User>(new CustomError({ type: ErrorType.Unauthorized })),
-        just: async user => {
+        just: async ([user, ref]) => {
           const passwordVerified = await verifyPassword(password, user.password)
 
-          return passwordVerified
-            ? Right<CustomError, User>(user)
-            : Left<CustomError, User>(
-                new CustomError({ type: ErrorType.Unauthorized, details: 'Incorrect credentials' })
-              )
+          if (passwordVerified) {
+            // update lastLoggedInAt
+            return match(
+              await updateUser({ ...user, lastLoggedInAt: new Date().toISOString() }, ref),
+              {
+                left: error => Left<CustomError, User>(error),
+                right: updatedUser => Right<CustomError, User>(updatedUser)
+              }
+            )
+          }
+
+          return Left<CustomError, User>(
+            new CustomError({ type: ErrorType.Unauthorized, details: 'Incorrect credentials' })
+          )
         }
       })
   })
 }
+
+// TODO: Implement logout
 
 export async function create({
   email,
@@ -93,19 +124,25 @@ export async function create({
   firstName,
   lastName
 }: Omit<User, '_id'>): Promise<Either<CustomError, User>> {
-  return match(await getUserByEmail(email), {
+  return match(await getUserAndRefByEmail(email), {
     left: async error => Left<CustomError, User>(error),
-    right: async maybeUser =>
-      match(maybeUser, {
+    right: async maybeUserAndRef =>
+      match(maybeUserAndRef, {
+        // TODO: if the user already exists but is deleted, update the
+        // user with new data and set deleteAt, lastLoggedInAt, etc to
+        // null (thus deleting em) and set createdAt to a timestamp from now
         just: _ => Left<CustomError, User>(new CustomError({ type: ErrorType.UserAlreadyExists })),
         nothing: async () => {
           try {
+            const createdAt = new Date()
             const user: User = {
               _id: uuidV4(),
               email,
               password,
               firstName,
-              lastName
+              lastName,
+              createdAt: createdAt.toISOString(),
+              updatedAt: createdAt.toISOString()
             }
 
             const userValidationResult = Joi.validate(user, UserSchema, { abortEarly: false })
@@ -133,7 +170,6 @@ export async function create({
             return Left<CustomError, User>(
               new CustomError({
                 type: ErrorType.InternalServerError,
-                details: err.message,
                 cause: err
               })
             )
@@ -143,17 +179,48 @@ export async function create({
   })
 }
 
-async function getUserByEmail(
-  email: ExtractType<User, 'email'>
-): Promise<Either<CustomError, Maybe<User>>> {
+async function updateUser(user: User, dbReference: string): Promise<Either<CustomError, User>> {
   try {
     const db = getDBClient()
-    const { data: user } = (await db.query(
+
+    const { data: updatedUser } = (await db.query(
+      q.Update(q.Ref(q.Collection(process.env.JWT_EXAMPLE_DB_USER_CLASS_NAME!), dbReference), {
+        data: { ...user, updatedAt: new Date().toISOString() }
+      })
+    )) as FaunaDBQueryResponse<User>
+
+    return Right<CustomError, User>(updatedUser)
+  } catch (err) {
+    return Left<CustomError, User>(
+      new CustomError({
+        type: ErrorType.InternalServerError,
+        cause: err
+      })
+    )
+  }
+}
+
+export async function getUserAndRefByEmail(
+  email: ExtractType<User, 'email'>
+): Promise<Either<CustomError, Maybe<[User, string]>>> {
+  try {
+    const db = getDBClient()
+    const {
+      data: user,
+      ref: { id: ref }
+    } = (await db.query(
       q.Get(q.Match(q.Index(process.env.JWT_EXAMPLE_DB_USER_BY_EMAIL_INDEX_NAME!), email))
     )) as FaunaDBQueryResponse<User>
 
     console.log(`User found with id ->`, user._id) // tslint:disable-line:no-console
-    return Right(Just(user))
+
+    // if the user is deleted, return nothing
+    // TODO: figure out a better thing to return here
+    if (user.deletedAt) {
+      return Right(Nothing())
+    }
+
+    return Right(Just([user, ref]))
   } catch (err) {
     // no user with email found
     if (err instanceof FaunaDBErrors.NotFound) {
