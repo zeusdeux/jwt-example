@@ -123,7 +123,9 @@ export async function create({
   password,
   firstName,
   lastName
-}: Omit<User, '_id'>): Promise<Either<CustomError, User>> {
+}: Pick<User, 'email' | 'password' | 'firstName' | 'lastName'>): Promise<
+  Either<CustomError, User>
+> {
   return match(await getUserAndRefByEmail(email), {
     left: async error => Left<CustomError, User>(error),
     right: async maybeUserAndRef =>
