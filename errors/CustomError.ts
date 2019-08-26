@@ -1,10 +1,12 @@
 import { NowResponse } from '@now/node'
 import { ExtractType } from '../utils/types'
+
 export const enum ErrorType {
   UserAlreadyExists = 'UserAlreadyExists',
   InternalServerError = 'InternalServerError',
   ValidationError = 'ValidationError',
-  Unauthorized = 'Unauthorized'
+  Unauthorized = 'Unauthorized',
+  UserDoesNotExist = 'UserDoesNotExist'
 }
 
 const enum HttpStatusCode {
@@ -35,6 +37,10 @@ const ErrorMetadataRecord: Record<ErrorType, ErrorMetadata> = {
   [ErrorType.Unauthorized]: {
     message: 'Unauthorized access',
     statusCode: HttpStatusCode.UNAUTHORIZED
+  },
+  [ErrorType.UserDoesNotExist]: {
+    message: 'User does not exist',
+    statusCode: HttpStatusCode.BAD_REQUEST
   }
 } as const
 
