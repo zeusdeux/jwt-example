@@ -7,15 +7,7 @@ import { Either, Left, Right } from '../utils/Either'
 import { match } from '../utils/match'
 import { Just, Maybe, Nothing } from '../utils/Maybe'
 import { ExtractType } from '../utils/types'
-import { getDBClient } from './db'
-
-interface FaunaDBQueryResponse<T> {
-  ref: {
-    id: string
-  }
-  data: T
-  ts: number
-}
+import { FaunaDBQueryResponse, getDBClient } from './db'
 
 export interface User {
   _id: string
@@ -69,11 +61,11 @@ export async function login({
 
   if (argsValidationError) {
     return Left(
-      new CustomError(
-        ErrorType.ValidationError,
-        argsValidationError.details.map(deet => deet.message),
-        argsValidationError
-      )
+      new CustomError({
+        type: ErrorType.ValidationError,
+        details: argsValidationError.details.map(deet => deet.message),
+        cause: argsValidationError
+      })
     )
   }
 
@@ -81,14 +73,14 @@ export async function login({
     left: async error => Left<CustomError, User>(error),
     right: async maybeUser =>
       match(maybeUser, {
-        nothing: () => Left<CustomError, User>(new CustomError(ErrorType.Unauthorized)),
+        nothing: () => Left<CustomError, User>(new CustomError({ type: ErrorType.Unauthorized })),
         just: async user => {
           const passwordVerified = await verifyPassword(password, user.password)
 
           return passwordVerified
             ? Right<CustomError, User>(user)
             : Left<CustomError, User>(
-                new CustomError(ErrorType.Unauthorized, 'Incorrect credentials')
+                new CustomError({ type: ErrorType.Unauthorized, details: 'Incorrect credentials' })
               )
         }
       })
@@ -105,7 +97,7 @@ export async function create({
     left: async error => Left<CustomError, User>(error),
     right: async maybeUser =>
       match(maybeUser, {
-        just: _ => Left<CustomError, User>(new CustomError(ErrorType.UserAlreadyExists)),
+        just: _ => Left<CustomError, User>(new CustomError({ type: ErrorType.UserAlreadyExists })),
         nothing: async () => {
           try {
             const user: User = {
@@ -120,11 +112,11 @@ export async function create({
 
             if (userValidationResult.error) {
               return Left<CustomError, User>(
-                new CustomError(
-                  ErrorType.ValidationError,
-                  userValidationResult.error.details.map(deet => deet.message),
-                  userValidationResult.error
-                )
+                new CustomError({
+                  type: ErrorType.ValidationError,
+                  details: userValidationResult.error.details.map(deet => deet.message),
+                  cause: userValidationResult.error
+                })
               )
             }
 
@@ -139,7 +131,11 @@ export async function create({
             return Right<CustomError, User>(createdUser)
           } catch (err) {
             return Left<CustomError, User>(
-              new CustomError(ErrorType.InternalServerError, err.message, err)
+              new CustomError({
+                type: ErrorType.InternalServerError,
+                details: err.message,
+                cause: err
+              })
             )
           }
         }
@@ -164,6 +160,6 @@ async function getUserByEmail(
       console.log(`User not found.`) // tslint:disable-line:no-console
       return Right(Nothing())
     }
-    return Left(new CustomError(ErrorType.InternalServerError, err))
+    return Left(new CustomError({ type: ErrorType.InternalServerError, cause: err }))
   }
 }

@@ -1,3 +1,5 @@
+import { NowResponse } from '@now/node'
+import { ExtractType } from '../utils/types'
 export const enum ErrorType {
   UserAlreadyExists = 'UserAlreadyExists',
   InternalServerError = 'InternalServerError',
@@ -36,15 +38,27 @@ const ErrorMetadataRecord: Record<ErrorType, ErrorMetadata> = {
   }
 } as const
 
+interface CustomErrorOptions {
+  type: ErrorType
+  details?: string | Array<string | object> | object
+  cause?: Error | CustomError
+}
+
 export class CustomError extends Error {
   public readonly statusCode: number
-  constructor(
-    readonly errorType: ErrorType,
-    readonly details?: string | Array<string | object> | object,
-    readonly cause?: Error | CustomError
-  ) {
-    super(ErrorMetadataRecord[errorType].message)
-    this.statusCode = ErrorMetadataRecord[errorType].statusCode
+  public readonly type: ExtractType<CustomErrorOptions, 'type'>
+  public readonly details: ExtractType<CustomErrorOptions, 'details'>
+  public readonly cause: ExtractType<CustomErrorOptions, 'cause'>
+
+  constructor(args: CustomErrorOptions) {
+    super(ErrorMetadataRecord[args.type].message)
+
+    const { type, details, cause } = args
+
+    this.statusCode = ErrorMetadataRecord[type].statusCode
+    this.type = type
+    this.details = details
+    this.cause = cause
   }
 }
 
@@ -58,7 +72,7 @@ export function prettyPrintError(err?: CustomError | Error): string {
   if (err instanceof CustomError) {
     result = `
 message: ${err.message}
-errorType: ${err.errorType}
+errorType: ${err.type}
 statusCode: ${err.statusCode}
 stack: ${err.stack}
 ${err.details ? 'details: ' + JSON.stringify(err.details, null, 4) : ''}
@@ -79,4 +93,14 @@ stack: ${err.stack}
       .map(line => `${'\t'.repeat(1)}${line}`)
       .join('\n')
   )
+}
+
+export function getErrorHandler(res: NowResponse, requestId: string) {
+  return (error: CustomError | Error) => {
+    const statusCode = 'statusCode' in error ? error.statusCode : 500
+    const details = 'details' in error ? error.details : undefined
+
+    console.log('Error occurred ->', prettyPrintError(error)) // tslint:disable-line:no-console
+    res.status(statusCode).json({ statusCode, message: error.message, details, requestId })
+  }
 }
