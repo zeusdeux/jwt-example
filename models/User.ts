@@ -116,7 +116,7 @@ export async function login({
   })
 }
 
-// TODO: Implement logout
+// TODO: Implement logout. Update all the necessary timestamps and token.verify will Just Work
 
 export async function create({
   email,
