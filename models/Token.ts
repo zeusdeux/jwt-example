@@ -2,7 +2,7 @@ import { sign as signJWT, SignOptions, verify as verifyJWT, VerifyOptions } from
 import { CustomError, ErrorType } from '../errors/CustomError'
 import { Either, Left, Right } from '../utils/Either'
 import { match } from '../utils/match'
-import { getUserAndRefByEmail } from './User'
+import { getUserAndRefByEmail } from './User.helpers'
 
 // const asyncVerify = promisify(verify)
 
@@ -62,10 +62,20 @@ type TokenVerifyOptions = Pick<VerifyOptions, 'clockTolerance' | 'subject' | 'ma
 // With this algorithm, a token blacklist isn't necessary. Everything is based on timestamps.
 // A logout anywhere automatically invalidates all existing tokens.
 // Mutiple logins (leading to multiple valid tokens) are also supported by design.
+
+type TokenPayload = object & {
+  sub: string
+  iat: number
+  exp: number
+  iss: string
+  aud: string
+  nbf?: number
+  jti?: string | number
+}
 export async function verify(
   token: string,
-  options: TokenVerifyOptions
-): Promise<Either<CustomError, object>> {
+  options: TokenVerifyOptions = {}
+): Promise<Either<CustomError, TokenPayload>> {
   try {
     const defaultOptions: VerifyOptions = {
       algorithms: [process.env.JWT_DEFAULT_ALGORITHM!],
@@ -78,14 +88,14 @@ export async function verify(
     const payload = verifyJWT(token, process.env.JWT_SIGNING_RS256_PUBLIC_KEY!, {
       ...defaultOptions,
       ...options
-    }) as object & { sub: string; iat: number } // sub and iat come from JWT spec and sub is supplied in api/login.ts which is user.email
+    }) as TokenPayload // sub and iat come from JWT spec and sub is supplied in api/login.ts which is user.email
 
     return match(await getUserAndRefByEmail(payload.sub), {
-      left: async error => Left<CustomError, object>(error),
+      left: async error => Left<CustomError, TokenPayload>(error),
       right: async maybeUserAndRef =>
         match(maybeUserAndRef, {
           nothing: () =>
-            Left<CustomError, object>(
+            Left<CustomError, TokenPayload>(
               new CustomError({
                 type: ErrorType.Unauthorized,
                 cause: new CustomError({ type: ErrorType.UserDoesNotExist })
@@ -105,14 +115,18 @@ export async function verify(
             const isValidToken = !isUserLoggedOut && payload.iat > lastLoggedOutAt
 
             if (isValidToken) {
-              return Right<CustomError, object>(payload)
+              return Right<CustomError, TokenPayload>(payload)
             }
 
-            return Left<CustomError, object>(new CustomError({ type: ErrorType.Unauthorized }))
+            return Left<CustomError, TokenPayload>(
+              new CustomError({ type: ErrorType.Unauthorized })
+            )
           }
         })
     })
   } catch (err) {
-    return Left<CustomError, object>(new CustomError({ type: ErrorType.Unauthorized, cause: err }))
+    return Left<CustomError, TokenPayload>(
+      new CustomError({ type: ErrorType.Unauthorized, cause: err })
+    )
   }
 }

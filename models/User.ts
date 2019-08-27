@@ -1,6 +1,6 @@
 import * as Joi from '@hapi/joi'
 import * as bcrypt from 'bcryptjs'
-import { errors as FaunaDBErrors, query as q } from 'faunadb'
+import { query as q } from 'faunadb'
 import { v4 as uuidV4 } from 'uuid'
 import { CustomError, ErrorType } from '../errors/CustomError'
 import { Either, Left, Right } from '../utils/Either'
@@ -8,19 +8,8 @@ import { match } from '../utils/match'
 import { Just, Maybe, Nothing } from '../utils/Maybe'
 import { ExtractType } from '../utils/types'
 import { FaunaDBQueryResponse, getDBClient } from './db'
-
-export interface User {
-  _id: string
-  email: string
-  password: string
-  firstName: string
-  lastName: string
-  createdAt: string
-  updatedAt: string
-  deletedAt?: string
-  lastLoggedInAt?: string
-  lastLoggedOutAt?: string
-}
+import { verify as verifyToken } from './Token'
+import { getUserAndRefByEmail, updateUser, User } from './User.helpers'
 
 const UserSchema = Joi.object().keys({
   _id: Joi.string()
@@ -69,6 +58,8 @@ export async function login({
   email,
   password
 }: Pick<User, 'email' | 'password'>): Promise<Either<CustomError, User>> {
+  const lastLoggedInAt = new Date().toISOString()
+
   const EmailAndPasswordDerivedSchema = Joi.object().keys({
     email: Joi.reach(UserSchema, ['email']),
     password: Joi.reach(UserSchema, ['password'])
@@ -99,13 +90,10 @@ export async function login({
 
           if (passwordVerified) {
             // update lastLoggedInAt
-            return match(
-              await updateUser({ ...user, lastLoggedInAt: new Date().toISOString() }, ref),
-              {
-                left: error => Left<CustomError, User>(error),
-                right: updatedUser => Right<CustomError, User>(updatedUser)
-              }
-            )
+            return match(await updateUser({ ...user, lastLoggedInAt }, ref), {
+              left: error => Left<CustomError, User>(error),
+              right: updatedUser => Right<CustomError, User>(updatedUser)
+            })
           }
 
           return Left<CustomError, User>(
@@ -116,7 +104,41 @@ export async function login({
   })
 }
 
-// TODO: Implement logout. Update all the necessary timestamps and token.verify will Just Work
+export async function logout(token: string): Promise<Maybe<CustomError>> {
+  const lastLoggedOutAt = new Date().toISOString()
+
+  return match(await verifyToken(token), {
+    left: error => Just(error),
+    right: async tokenPayload => {
+      const { sub: email } = tokenPayload
+
+      return match(await getUserAndRefByEmail(email), {
+        left: error => Just(error),
+        right: maybeUserAndRef =>
+          match(maybeUserAndRef, {
+            nothing: () =>
+              Just(
+                new CustomError({
+                  type: ErrorType.Unauthorized,
+                  cause: new CustomError({ type: ErrorType.UserDoesNotExist })
+                })
+              ),
+            just: async ([user, ref]) => {
+              const updatedUser: User = {
+                ...user,
+                lastLoggedOutAt
+              }
+
+              return match(await updateUser(updatedUser, ref), {
+                left: error => Just(error),
+                right: () => Nothing<CustomError>()
+              })
+            }
+          })
+      })
+    }
+  })
+}
 
 export async function create({
   email,
@@ -136,15 +158,15 @@ export async function create({
         just: _ => Left<CustomError, User>(new CustomError({ type: ErrorType.UserAlreadyExists })),
         nothing: async () => {
           try {
-            const createdAt = new Date()
+            const createdAt = new Date().toISOString()
             const user: User = {
               _id: uuidV4(),
               email,
               password,
               firstName,
               lastName,
-              createdAt: createdAt.toISOString(),
-              updatedAt: createdAt.toISOString()
+              createdAt,
+              updatedAt: createdAt
             }
 
             const userValidationResult = Joi.validate(user, UserSchema, { abortEarly: false })
