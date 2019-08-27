@@ -23,20 +23,20 @@ const UserSchema = Joi.object().keys({
     .required(),
   firstName: Joi.string().required(),
   lastName: Joi.string().required(),
-  createdAt: Joi.date()
-    .iso()
+  createdAt: Joi.string()
+    .isoDate()
     .required(),
-  updatedAt: Joi.date()
-    .iso()
+  updatedAt: Joi.string()
+    .isoDate()
     .required(),
-  deleteAt: Joi.date()
-    .iso()
+  deleteAt: Joi.string()
+    .isoDate()
     .optional(),
-  lastLoggedInAt: Joi.date()
-    .iso()
+  lastLoggedInAt: Joi.string()
+    .isoDate()
     .optional(),
-  lastLoggedOutAt: Joi.date()
-    .iso()
+  lastLoggedOutAt: Joi.string()
+    .isoDate()
     .optional()
 })
 
