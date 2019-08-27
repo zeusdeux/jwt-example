@@ -3,7 +3,8 @@ import { STATUS_CODES } from 'http'
 import { v4 as uuidV4 } from 'uuid'
 import { getErrorHandler } from '../errors/CustomError'
 import { create as createToken } from '../models/Token'
-import { login as loginUser, User } from '../models/User'
+import { login as loginUser } from '../models/User'
+import { User } from '../models/User.helpers'
 import { match } from '../utils/match'
 
 export default async function(req: NowRequest, res: NowResponse) {
