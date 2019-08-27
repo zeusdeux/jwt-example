@@ -7,7 +7,7 @@ import { login as loginUser, User } from '../models/User'
 import { match } from '../utils/match'
 
 export default async function(req: NowRequest, res: NowResponse) {
-  const { email, password }: Omit<User, '_id'> = req.body
+  const { email, password }: Pick<User, 'email' | 'password'> = req.body
   const requestId = uuidV4()
   const handleError = getErrorHandler(res, requestId)
 
