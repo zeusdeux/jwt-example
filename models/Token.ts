@@ -33,10 +33,10 @@ export async function create(
 ): Promise<Either<CustomError, string>> {
   try {
     const defaultOptions: SignOptions = {
-      algorithm: 'RS256',
-      expiresIn: '1h',
-      audience: 'https://jwt-example.zdx.cat',
-      issuer: 'https://jwt-example.zdx.cat'
+      algorithm: process.env.JWT_DEFAULT_ALGORITHM!,
+      expiresIn: process.env.JWT_DEFAULT_EXPIRES_IN,
+      audience: process.env.JWT_DEFAULT_AUDIENCE!,
+      issuer: process.env.JWT_DEFAULT_ISSUER!
     }
 
     // TODO: switch to an async sign function
@@ -68,12 +68,13 @@ export async function verify(
 ): Promise<Either<CustomError, object>> {
   try {
     const defaultOptions: VerifyOptions = {
-      algorithms: ['RS256'],
-      audience: 'https://jwt-example.zdx.cat', // TODO: stick this in an env var
-      issuer: 'https://jwt-example.zdx.cat' // TODO: stick this in an env var
+      algorithms: [process.env.JWT_DEFAULT_ALGORITHM!],
+      audience: process.env.JWT_DEFAULT_AUDIENCE!,
+      issuer: process.env.JWT_DEFAULT_ISSUER!
     }
 
     // TODO: switch to async verify function
+    // TODO: Add an interface for default keys in a JWT decoded payload such as sub, iat, exp, etc
     const payload = verifyJWT(token, process.env.JWT_SIGNING_RS256_PUBLIC_KEY!, {
       ...defaultOptions,
       ...options
