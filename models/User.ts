@@ -203,54 +203,40 @@ export async function create({
   })
 }
 
-async function updateUser(user: User, dbReference: string): Promise<Either<CustomError, User>> {
-  try {
-    const db = getDBClient()
+// Named remove since delete is a keyword and TS shits the bed when
+// a keyword is used as a function name
+export async function remove(token: string): Promise<Maybe<CustomError>> {
+  const deletedAt = new Date().toISOString()
 
-    const { data: updatedUser } = (await db.query(
-      q.Update(q.Ref(q.Collection(process.env.JWT_EXAMPLE_DB_USER_CLASS_NAME!), dbReference), {
-        data: { ...user, updatedAt: new Date().toISOString() }
+  return match(await verifyToken(token), {
+    left: error => Just(error),
+    right: async tokenPayload => {
+      const { sub: email } = tokenPayload
+
+      return match(await getUserAndRefByEmail(email), {
+        left: error => Just(error),
+        right: maybeUserAndRef =>
+          match(maybeUserAndRef, {
+            nothing: () =>
+              Just(
+                new CustomError({
+                  type: ErrorType.Unauthorized,
+                  cause: new CustomError({ type: ErrorType.UserDoesNotExist })
+                })
+              ),
+            just: async ([user, ref]) => {
+              const updatedUser: User = {
+                ...user,
+                deletedAt
+              }
+
+              return match(await updateUser(updatedUser, ref), {
+                left: error => Just(error),
+                right: () => Nothing<CustomError>()
+              })
+            }
+          })
       })
-    )) as FaunaDBQueryResponse<User>
-
-    return Right<CustomError, User>(updatedUser)
-  } catch (err) {
-    return Left<CustomError, User>(
-      new CustomError({
-        type: ErrorType.InternalServerError,
-        cause: err
-      })
-    )
-  }
-}
-
-export async function getUserAndRefByEmail(
-  email: ExtractType<User, 'email'>
-): Promise<Either<CustomError, Maybe<[User, string]>>> {
-  try {
-    const db = getDBClient()
-    const {
-      data: user,
-      ref: { id: ref }
-    } = (await db.query(
-      q.Get(q.Match(q.Index(process.env.JWT_EXAMPLE_DB_USER_BY_EMAIL_INDEX_NAME!), email))
-    )) as FaunaDBQueryResponse<User>
-
-    console.log(`User found with id ->`, user._id) // tslint:disable-line:no-console
-
-    // if the user is deleted, return nothing
-    // TODO: figure out a better thing to return here
-    if (user.deletedAt) {
-      return Right(Nothing())
     }
-
-    return Right(Just([user, ref]))
-  } catch (err) {
-    // no user with email found
-    if (err instanceof FaunaDBErrors.NotFound) {
-      console.log(`User not found.`) // tslint:disable-line:no-console
-      return Right(Nothing())
-    }
-    return Left(new CustomError({ type: ErrorType.InternalServerError, cause: err }))
-  }
+  })
 }
