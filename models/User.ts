@@ -152,9 +152,6 @@ export async function create({
     left: async error => Left<CustomError, User>(error),
     right: async maybeUserAndRef =>
       match(maybeUserAndRef, {
-        // TODO: if the user already exists but is deleted, update the
-        // user with new data and set deleteAt, lastLoggedInAt, etc to
-        // null (thus deleting em) and set createdAt to a timestamp from now
         just: _ => Left<CustomError, User>(new CustomError({ type: ErrorType.UserAlreadyExists })),
         nothing: async () => {
           try {
