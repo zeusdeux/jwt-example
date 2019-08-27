@@ -22,6 +22,11 @@
       "dest": "/api/logout.ts"
     },
     {
+      "src": "/delete",
+      "methods": ["POST"],
+      "dest": "/api/delete.ts"
+    },
+    {
       "src": "/protected",
       "methods": ["GET"],
       "dest": "/api/protected.ts"
