@@ -43,11 +43,7 @@
     "JWT_EXAMPLE_DB_USER_CLASS_NAME": "Users",
     "JWT_EXAMPLE_DB_TOKEN_BLACKLIST_CLASS_NAME": "JWTBlacklist",
     "JWT_EXAMPLE_DB_USER_BY_EMAIL_INDEX_NAME": "user-by-email",
-    "JWT_EXAMPLE_DB_JWT_BY_TOKEN_FROM_BLACKLIST_INDEX_NAME": "jwt-by-token-from-blacklist",
-    "JWT_DEFAULT_AUDIENCE": "https://jwt-example.zdx.cat",
-    "JWT_DEFAULT_ISSUER": "https://jwt-example.zdx.cat",
-    "JWT_DEFAULT_ALGORITHM": "RS256",
-    "JWT_DEFAULT_EXPIRES_IN": "1h"
+    "JWT_EXAMPLE_DB_JWT_BY_TOKEN_FROM_BLACKLIST_INDEX_NAME": "jwt-by-token-from-blacklist"
   },
   "github": {
     "enabled": true

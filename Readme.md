@@ -25,3 +25,5 @@ registration done correctly<sup>\*</sup>.
 - `models/*` holds the models for the entities in the system (User & Token) and some helpers
 - `errors/*` holds the custom error tooling for the codebase
 - `utils/*` hold code structure and type level utilties
+
+> NOTE: [TIL that AWS Lambda has a hard limit of 4kb on env vars when JSON-stringified](https://github.com/zeusdeux/jwt-example/commit/4f09c2e56df2d95ac9df0082fad4bfc4e22fbddd#comments)

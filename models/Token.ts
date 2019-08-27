@@ -4,7 +4,10 @@ import { Either, Left, Right } from '../utils/Either'
 import { match } from '../utils/match'
 import { getUserAndRefByEmail } from './User.helpers'
 
-// const asyncVerify = promisify(verify)
+const JWT_DEFAULT_AUDIENCE = 'https://jwt-example.zdx.cat'
+const JWT_DEFAULT_ISSUER = 'https://jwt-example.zdx.cat'
+const JWT_DEFAULT_ALGORITHM = 'RS256'
+const JWT_DEFAULT_EXPIRES_IN = '1h'
 
 type TokenCreateOptions = Pick<SignOptions, 'header' | 'notBefore' | 'expiresIn'> &
   Required<Pick<SignOptions, 'subject'>>
@@ -33,10 +36,10 @@ export async function create(
 ): Promise<Either<CustomError, string>> {
   try {
     const defaultOptions: SignOptions = {
-      algorithm: process.env.JWT_DEFAULT_ALGORITHM!,
-      expiresIn: process.env.JWT_DEFAULT_EXPIRES_IN,
-      audience: process.env.JWT_DEFAULT_AUDIENCE!,
-      issuer: process.env.JWT_DEFAULT_ISSUER!
+      algorithm: JWT_DEFAULT_ALGORITHM,
+      expiresIn: JWT_DEFAULT_EXPIRES_IN,
+      audience: JWT_DEFAULT_AUDIENCE,
+      issuer: JWT_DEFAULT_ISSUER
     }
 
     // TODO: switch to an async sign function
@@ -78,9 +81,9 @@ export async function verify(
 ): Promise<Either<CustomError, TokenPayload>> {
   try {
     const defaultOptions: VerifyOptions = {
-      algorithms: [process.env.JWT_DEFAULT_ALGORITHM!],
-      audience: process.env.JWT_DEFAULT_AUDIENCE!,
-      issuer: process.env.JWT_DEFAULT_ISSUER!
+      algorithms: [JWT_DEFAULT_ALGORITHM],
+      audience: JWT_DEFAULT_AUDIENCE,
+      issuer: JWT_DEFAULT_ISSUER
     }
 
     // TODO: switch to async verify function
