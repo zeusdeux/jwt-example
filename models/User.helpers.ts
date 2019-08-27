@@ -25,7 +25,9 @@ export async function updateUser(
   // tslint:disable-next-line:no-console
   console.log(
     `Updating user with id ${user._id}${
-      process.env.NODE_ENV === 'production' ? '.' : ' -> ' + user + ' REF:' + dbReference
+      process.env.NODE_ENV === 'production'
+        ? '.'
+        : ' -> ' + JSON.stringify(user, null, 2) + ' REF:' + dbReference
     }`
   )
   try {
@@ -40,7 +42,7 @@ export async function updateUser(
     // tslint:disable-next-line:no-console
     console.log(
       `User with id ${updatedUser._id} updated${
-        process.env.NODE_ENV === 'production' ? '.' : ' -> ' + updatedUser
+        process.env.NODE_ENV === 'production' ? '.' : ' -> ' + JSON.stringify(updatedUser, null, 2)
       }`
     )
     return Right<CustomError, User>(updatedUser)
@@ -72,7 +74,9 @@ export async function getUserAndRefByEmail(
 
     // tslint:disable-next-line:no-console
     console.log(
-      `User found with id ${user._id}${process.env.NODE_ENV === 'production' ? '.' : ' -> ' + user}`
+      `User found with id ${user._id}${
+        process.env.NODE_ENV === 'production' ? '.' : ' -> ' + JSON.stringify(user, null, 2)
+      }`
     )
 
     // if the user is deleted, return nothing
