@@ -2,14 +2,13 @@ import { NowRequest, NowResponse } from '@now/node'
 import { STATUS_CODES } from 'http'
 import { v4 as uuidV4 } from 'uuid'
 import { CustomError, ErrorType, getErrorHandler } from '../errors/CustomError'
-import { create as createToken } from '../models/Token'
-import { logout as logoutUser, User } from '../models/User'
+import { logout as logoutUser } from '../models/User'
 import { match } from '../utils/match'
 
 function getToken(req: NowRequest): string {
-  const token = (req.header.authorization || '').trim().split(/^(?:b|B)earer +/)[1]
+  const token = (req.headers.authorization || '').trim().split(/^(?:b|B)earer +/)[1]
 
-  return token ? token : req.query.token
+  return token ? token : typeof req.query.token === 'string' ? req.query.token : '<INVALID TOKEN>'
 }
 
 export default async function(req: NowRequest, res: NowResponse) {
@@ -24,7 +23,7 @@ export default async function(req: NowRequest, res: NowResponse) {
   } else {
     match(await logoutUser(token), {
       just: handleError,
-      nothing: async _ => {
+      nothing: async () => {
         const status = 200
         const response = {
           requestId,
