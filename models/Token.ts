@@ -19,11 +19,13 @@ type TokenCreateOptions = Pick<SignOptions, 'header' | 'notBefore' | 'expiresIn'
 //   })
 // }
 
-// TODO: figure out if we should generate a new token for a user every
+// DONE: figure out if we should generate a new token for a user every
 // time he or she logs in for e.g., say a user logs in and gets a
 // token and then hits /login again immediately, do they get a new
 // token? If they get a new token for each hit to /login, what happens
 // on /logout for the same user?
+// Solution: A user gets a token per login. When the user logs out anywhere,
+// all tokens related to the user are invalidated.
 // TODO: Maybe add interface for payload (?)
 export async function create(
   payload: object,
@@ -53,12 +55,13 @@ export async function create(
 type TokenVerifyOptions = Pick<VerifyOptions, 'clockTolerance' | 'subject' | 'maxAge'>
 // Algorithm:
 // const token = verify(token, secret, ...) // this throws when it fails
-// const isUserLoggedIn = lastLoggedInAt && lastLoggedOutAt && lastLoggedInAt > lastLoggedOutAt
-// isValidToken = isUserLoggedIn &&
-//                token.iat >= lastLoggedInAt
+// const isUserLoggedOut = lastLoggedInAt && lastLoggedOutAt && lastLoggedOutAt >= lastLoggedInAt
+// isValidToken = isUserLoggedOut &&
+//                token.iat > lastLoggedOutAt
 //
 // With this algorithm, a token blacklist isn't necessary. Everything is based on timestamps.
 // A logout anywhere automatically invalidates all existing tokens.
+// Mutiple logins (leading to multiple valid tokens) are also supported by design.
 export async function verify(
   token: string,
   options: TokenVerifyOptions
@@ -81,15 +84,24 @@ export async function verify(
       right: async maybeUserAndRef =>
         match(maybeUserAndRef, {
           nothing: () =>
-            Left<CustomError, object>(new CustomError({ type: ErrorType.UserDoesNotExist })), // TODO: rethink this error. Maybe it's too much info
+            Left<CustomError, object>(
+              new CustomError({
+                type: ErrorType.Unauthorized,
+                cause: new CustomError({ type: ErrorType.UserDoesNotExist })
+              })
+            ),
           just: async ([user]) => {
             // TODO: switch to date-fns for this maybe
-            const lastLoggedInAt = user.lastLoggedInAt ? new Date(user.lastLoggedInAt).getTime() : 0
-            const lastLoggedOutAt = user.lastLoggedOutAt
+            let lastLoggedInAt = user.lastLoggedInAt ? new Date(user.lastLoggedInAt).getTime() : 0
+            lastLoggedInAt = lastLoggedInAt ? lastLoggedInAt : 0
+
+            let lastLoggedOutAt = user.lastLoggedOutAt
               ? new Date(user.lastLoggedOutAt).getTime()
               : 0
-            const isUserLoggedIn = lastLoggedInAt > lastLoggedOutAt
-            const isValidToken = isUserLoggedIn && payload.iat >= lastLoggedInAt
+            lastLoggedOutAt = lastLoggedOutAt ? lastLoggedOutAt : 0
+
+            const isUserLoggedOut = lastLoggedOutAt >= lastLoggedInAt
+            const isValidToken = !isUserLoggedOut && payload.iat > lastLoggedOutAt
 
             if (isValidToken) {
               return Right<CustomError, object>(payload)
