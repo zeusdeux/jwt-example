@@ -112,7 +112,9 @@ export async function verify(
             lastLoggedOutAt = lastLoggedOutAt ? lastLoggedOutAt : 0
 
             const isUserLoggedOut = lastLoggedOutAt >= lastLoggedInAt
-            const isValidToken = !isUserLoggedOut && payload.iat > lastLoggedOutAt
+            // payload.iat is seconds since epoch but lastLoggedOutAt is ms since epoch
+            // more info: https://github.com/auth0/node-jsonwebtoken#token-expiration-exp-claim
+            const isValidToken = !isUserLoggedOut && payload.iat * 1000 > lastLoggedOutAt
 
             if (isValidToken) {
               return Right<CustomError, TokenPayload>(payload)
