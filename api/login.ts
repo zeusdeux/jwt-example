@@ -19,7 +19,7 @@ export default async function(req: NowRequest, res: NowResponse) {
     right: async user => {
       const subject = user.email
 
-      match(await createToken({ wat: 'dude' + (Math.random() % 10000) }, { subject }), {
+      match(await createToken({ wat: 'dude ' + (Math.random() % 10000) }, { subject }), {
         left: handleError,
         right: token => {
           const status = 200
