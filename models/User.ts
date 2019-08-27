@@ -224,7 +224,8 @@ export async function remove(token: string): Promise<Maybe<CustomError>> {
             just: async ([user, ref]) => {
               const updatedUser: User = {
                 ...user,
-                deletedAt
+                deletedAt,
+                lastLoggedOutAt: deletedAt // logout user when deleted so that token verification is still correct
               }
 
               return match(await updateUser(updatedUser, ref), {
