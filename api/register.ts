@@ -2,11 +2,17 @@ import { NowRequest, NowResponse } from '@now/node'
 import { STATUS_CODES } from 'http'
 import { v4 as uuidV4 } from 'uuid'
 import { getErrorHandler } from '../errors/CustomError'
-import { create as createUser, User } from '../models/User'
+import { create as createUser } from '../models/User'
+import { User } from '../models/User.helpers'
 import { match } from '../utils/match'
 
 export default async function(req: NowRequest, res: NowResponse): Promise<void> {
-  const { email, password, firstName, lastName }: Omit<User, '_id'> = req.body
+  const {
+    email,
+    password,
+    firstName,
+    lastName
+  }: Pick<User, 'email' | 'password' | 'firstName' | 'lastName'> = req.body
   const requestId = uuidV4()
   const handleError = getErrorHandler(res, requestId)
 
