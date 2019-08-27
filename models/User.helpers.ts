@@ -19,7 +19,11 @@ export interface User {
 }
 
 export async function updateUser(
-  user: User,
+  user: Omit<User, 'deletedAt' | 'lastLoggedInAt' | 'lastLoggedOutAt'> & {
+    deletedAt?: string | null // null signifies deleting this key from object in db
+    lastLoggedInAt?: string | null // null signifies deleting this key from object in db
+    lastLoggedOutAt?: string | null // null signifies deleting this key from object in db
+  },
   dbReference: string
 ): Promise<Either<CustomError, User>> {
   // tslint:disable-next-line:no-console
@@ -56,8 +60,12 @@ export async function updateUser(
   }
 }
 
+interface GetUserOptions {
+  fetchEvenDeleted: boolean
+}
 export async function getUserAndRefByEmail(
-  email: ExtractType<User, 'email'>
+  email: ExtractType<User, 'email'>,
+  options: GetUserOptions = { fetchEvenDeleted: false }
 ): Promise<Either<CustomError, Maybe<[User, string]>>> {
   // tslint:disable-next-line:no-console
   console.log(
@@ -79,11 +87,12 @@ export async function getUserAndRefByEmail(
       }`
     )
 
-    // if the user is deleted, return nothing
-    if (new Date(user.deletedAt || '').getTime()) {
-      console.log(`User deleted.`) // tslint:disable-line:no-console
+    // if the user is deleted, and we aren't asked to fetch deleted users, return nothing.
+    if (!options.fetchEvenDeleted && new Date(user.deletedAt || '').getTime()) {
+      console.log(`User is a deleted user, returning nothing.`) // tslint:disable-line:no-console
       return Right(Nothing())
     }
+
     return Right(Just([user, ref]))
   } catch (err) {
     // no user with email found

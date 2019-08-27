@@ -148,11 +148,54 @@ export async function create({
 }: Pick<User, 'email' | 'password' | 'firstName' | 'lastName'>): Promise<
   Either<CustomError, User>
 > {
-  return match(await getUserAndRefByEmail(email), {
+  return match(await getUserAndRefByEmail(email, { fetchEvenDeleted: true }), {
     left: async error => Left<CustomError, User>(error),
     right: async maybeUserAndRef =>
       match(maybeUserAndRef, {
-        just: _ => Left<CustomError, User>(new CustomError({ type: ErrorType.UserAlreadyExists })),
+        // if there is a user and deletedAt is a real date, update the user to pretend like
+        // a new user was created.
+        // TODO: refactor this bit of code as it's shared by this block
+        // and the nothing block.
+        just: async ([existingUser, ref]) => {
+          if (new Date(existingUser.deletedAt || '').getTime()) {
+            console.log(`Found deleted. Overwriting.`) // tslint:disable-line:no-console
+            const createdAt = new Date().toISOString()
+            const user: User = {
+              _id: uuidV4(),
+              email,
+              password,
+              firstName,
+              lastName,
+              createdAt,
+              updatedAt: createdAt
+            }
+
+            const userValidationResult = Joi.validate(user, UserSchema, { abortEarly: false })
+
+            if (userValidationResult.error) {
+              return Left<CustomError, User>(
+                new CustomError({
+                  type: ErrorType.ValidationError,
+                  details: userValidationResult.error.details.map(deet => deet.message),
+                  cause: userValidationResult.error
+                })
+              )
+            }
+            const hashedPassword = await hashPassword(userValidationResult.value.password)
+            return updateUser(
+              {
+                ...userValidationResult.value,
+                password: hashedPassword,
+                deletedAt: null, // remove this key from existing user object
+                lastLoggedInAt: null, // remove this key from existing user object
+                lastLoggedOutAt: null // remove this key from existing user object
+              },
+              ref
+            )
+          }
+
+          return Left<CustomError, User>(new CustomError({ type: ErrorType.UserAlreadyExists }))
+        },
         nothing: async () => {
           try {
             const createdAt = new Date().toISOString()
