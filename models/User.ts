@@ -29,7 +29,7 @@ const UserSchema = Joi.object().keys({
   updatedAt: Joi.string()
     .isoDate()
     .required(),
-  deleteAt: Joi.string()
+  deletedAt: Joi.string()
     .isoDate()
     .optional(),
   lastLoggedInAt: Joi.string()
