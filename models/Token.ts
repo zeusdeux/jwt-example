@@ -94,7 +94,7 @@ export async function verify(
     }) as TokenPayload // sub and iat come from JWT spec and sub is supplied in api/login.ts which is user.email
 
     return match(await getUserAndRefByEmail(payload.sub), {
-      left: async error => Left<CustomError, TokenPayload>(error),
+      left: error => Left<CustomError, TokenPayload>(error),
       right: async maybeUserAndRef =>
         match(maybeUserAndRef, {
           nothing: () =>

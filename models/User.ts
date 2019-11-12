@@ -71,7 +71,7 @@ export async function login({
   )
 
   if (argsValidationError) {
-    return Left(
+    return Left<CustomError, User>(
       new CustomError({
         type: ErrorType.ValidationError,
         details: argsValidationError.details.map(deet => deet.message),
@@ -81,7 +81,7 @@ export async function login({
   }
 
   return match(await getUserAndRefByEmail(email), {
-    left: async error => Left<CustomError, User>(error),
+    left: error => Left<CustomError, User>(error),
     right: async maybeUserAndRef =>
       match(maybeUserAndRef, {
         nothing: () => Left<CustomError, User>(new CustomError({ type: ErrorType.Unauthorized })),
@@ -149,7 +149,7 @@ export async function create({
   Either<CustomError, User>
 > {
   return match(await getUserAndRefByEmail(email, { fetchEvenDeleted: true }), {
-    left: async error => Left<CustomError, User>(error),
+    left: error => Left<CustomError, User>(error),
     right: async maybeUserAndRef =>
       match(maybeUserAndRef, {
         // if there is a user and deletedAt is a real date, update the user to pretend like
