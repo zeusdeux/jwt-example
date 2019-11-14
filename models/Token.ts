@@ -1,11 +1,16 @@
 import { sign as signJWT, SignOptions, verify as verifyJWT, VerifyOptions } from 'jsonwebtoken'
+import { resolve as resolvePath } from 'path'
 import { CustomError, ErrorType } from '../errors/CustomError'
+import { decryptFile } from '../utils/crypt'
 import { Either, Left, Right } from '../utils/Either'
 import { match } from '../utils/match'
 import { getUserAndRefByEmail } from './User.helpers'
 
 type TokenCreateOptions = Pick<SignOptions, 'header' | 'notBefore' | 'expiresIn'> &
   Required<Pick<SignOptions, 'subject'>>
+
+let decryptedSigningKeys: { jwtSigningKey: { public: string; private: string } }
+const signingKeysFilePath = resolvePath(__dirname, '../jwtSigningKeys.json.encrypted')
 
 // function asyncSign(...args: ExtractArgTypes<typeof sign>): Promise<string> {
 //   return new Promise((resolve, reject) => {
@@ -37,8 +42,12 @@ export async function create(
       issuer: process.env.JWT_DEFAULT_ISSUER
     }
 
+    if (!decryptedSigningKeys) {
+      decryptedSigningKeys = JSON.parse(await decryptFile(signingKeysFilePath))
+    }
+
     // TODO: switch to an async sign function
-    const token: string = signJWT(payload, process.env.JWT_SIGNING_RS256_PRIVATE_KEY!, {
+    const token: string = signJWT(payload, decryptedSigningKeys.jwtSigningKey.private, {
       ...defaultOptions,
       ...options
     })
@@ -81,9 +90,13 @@ export async function verify(
       issuer: process.env.JWT_DEFAULT_ISSUER
     }
 
+    if (!decryptedSigningKeys) {
+      decryptedSigningKeys = JSON.parse(await decryptFile(signingKeysFilePath))
+    }
+
     // TODO: switch to async verify function
     // TODO: Add an interface for default keys in a JWT decoded payload such as sub, iat, exp, etc
-    const payload = verifyJWT(token, process.env.JWT_SIGNING_RS256_PUBLIC_KEY!, {
+    const payload = verifyJWT(token, decryptedSigningKeys.jwtSigningKey.public, {
       ...defaultOptions,
       ...options
     }) as TokenPayload // sub and iat come from JWT spec and sub is supplied in api/login.ts which is user.email

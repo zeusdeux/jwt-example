@@ -10,3 +10,4 @@
 !now.json
 !package*.json
 !tsconfig.json
+!jwtSigningKeys.json.encrypted
