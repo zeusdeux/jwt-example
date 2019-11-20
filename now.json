@@ -7,6 +7,14 @@
   "builds": [{ "src": "api/*.ts", "use": "@now/node" }],
   "routes": [
     {
+      "src": "/",
+      "methods": ["GET"],
+      "status": 302,
+      "headers": {
+        "Location": "https://github.com/zeusdeux/jwt-example"
+      }
+    },
+    {
       "src": "/register",
       "methods": ["POST"],
       "dest": "/api/register.ts"
